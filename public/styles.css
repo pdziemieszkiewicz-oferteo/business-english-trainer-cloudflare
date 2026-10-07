@@ -200,3 +200,56 @@ code { color:#bae6fd; }
   .rating-controls button { padding:8px 8px; }
   .rating-status { margin-top:4px; font-size:.7rem; }
 }
+
+
+/* V7.5: high-contrast bilingual text with compact breathing room. */
+.status-card .sentence,
+.status-card .translation {
+  color:#fff !important;
+  opacity:1 !important;
+}
+
+/* Normal modes: English first, Polish second. */
+.status-card .sentence {
+  min-height:0;
+  margin:4px 0 2px;
+  padding:2px 0;
+}
+.status-card .translation {
+  min-height:0;
+  margin:2px 0 4px;
+  padding:2px 0;
+}
+
+/* PL mode: Polish first, English second. Keep both white and separated slightly. */
+.status-card.polish-mode .translation {
+  min-height:0;
+  margin:4px 0 2px;
+  padding:2px 0;
+  color:#fff !important;
+}
+.status-card.polish-mode .sentence {
+  min-height:0;
+  margin:2px 0 4px;
+  padding:2px 0;
+  color:#fff !important;
+}
+
+@media (orientation: landscape) and (max-height:520px) {
+  .status-card .sentence {
+    margin:3px 0 1px;
+    padding:1px 0;
+  }
+  .status-card .translation {
+    margin:1px 0 3px;
+    padding:1px 0;
+  }
+  .status-card.polish-mode .translation {
+    margin:3px 0 1px;
+    padding:1px 0;
+  }
+  .status-card.polish-mode .sentence {
+    margin:1px 0 3px;
+    padding:1px 0;
+  }
+}

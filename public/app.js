@@ -25,7 +25,7 @@
 
   const STORE_KEY = 'ceoEnglishRideTrainerV6';
   const LEGACY_STORE_KEY = 'ceoEnglishRideTrainerV5';
-  const APP_VERSION = '7.4';
+  const APP_VERSION = '7.5';
   const MANUAL_REPLAY_BONUS_SECONDS = 2;
   const MODE_NAMES = { R: 'Repeat', A: 'Active Recall', B: 'Business Response', P: 'Translate & Recall (PL → EN)' };
 
@@ -72,7 +72,7 @@
     const incomingSettings = raw?.settings || {};
     const settings = { ...d.settings, ...incomingSettings };
     // Migration from the previous single "Difficult exercises only" switch.
-    // Preserve the user's intent the first time V7.4 opens.
+    // Preserve the user's intent the first time V7.5 opens.
     const hasNewDifficultyFilters = ['filterEasy', 'filterHard', 'filterNone'].some(k => Object.prototype.hasOwnProperty.call(incomingSettings, k));
     if (!hasNewDifficultyFilters && incomingSettings.hardOnly === true) {
       settings.filterEasy = false; settings.filterHard = true; settings.filterNone = false;
@@ -717,7 +717,7 @@
       const rs = roundState();
       navigator.mediaSession.metadata = new MediaMetadata({
         title: `${lesson.title || lesson.id} · ${MODE_NAMES[state.settings.mode] || state.settings.mode}`,
-        artist: 'CEO English Ride Trainer v7.4',
+        artist: 'CEO English Ride Trainer v7.5',
         album: difficultyFilterActive() ? `${queuePos + 1}/${queue.length} · Filtered · Round ${rs?.round || 1}` : `${queuePos + 1}/${queue.length} · Round ${rs?.round || 1}`
       });
     } catch {}

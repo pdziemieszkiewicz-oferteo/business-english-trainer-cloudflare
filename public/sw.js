@@ -1,10 +1,10 @@
-const CACHE = 'ride-trainer-v7-4-shell-1';
+const CACHE = 'ride-trainer-v7-5-shell-1';
 
 const SHELL = [
   './',
   './index.html',
-  './app.js?v=7.4',
-  './styles.css?v=7.4',
+  './app.js?v=7.5',
+  './styles.css?v=7.5',
   './manifest.webmanifest',
   './icons/icon.svg',
   './icons/icon-192.png',
