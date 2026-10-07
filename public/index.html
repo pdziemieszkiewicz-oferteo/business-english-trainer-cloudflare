@@ -5,17 +5,17 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <meta name="theme-color" content="#0f172a" />
   <meta name="description" content="Hands-free Business English trainer with Repeat, Active Recall, Business Response and Translate & Recall modes." />
-  <title>CEO English Ride Trainer v7.3</title>
+  <title>CEO English Ride Trainer v7.4</title>
   <link rel="manifest" href="manifest.webmanifest" />
   <link rel="icon" href="icons/icon.svg" type="image/svg+xml" />
-  <link rel="stylesheet" href="styles.css?v=7.3" />
+  <link rel="stylesheet" href="styles.css?v=7.4" />
 </head>
 <body>
   <main class="app">
     <header class="topbar">
       <div>
         <p class="eyebrow">Business English</p>
-        <h1>Ride Trainer <span class="app-version">v7.3</span></h1>
+        <h1>Ride Trainer <span class="app-version">v7.4</span></h1>
       </div>
       <div class="top-actions">
         <span id="syncBadge" class="sync-badge" title="Server sync status">Progress: local</span>
@@ -26,14 +26,17 @@
 
     <section class="card status-card" id="statusCard">
       <div class="progress-row">
-        <span id="counter">—</span>
+        <div class="progress-summary">
+          <span id="counter">—</span>
+          <span id="difficultyCounts" class="difficulty-counts" title="None / Easy / Hard" aria-label="Difficulty counts: None, Easy, Hard">— / — / —</span>
+        </div>
         <span id="phaseLabel">Ready</span>
       </div>
       <div class="progress"><div id="progressBar"></div></div>
       <div id="modeName" class="mode-name">Repeat</div>
       <p id="sentenceText" class="sentence">Loading lesson…</p>
       <p id="translationText" class="translation"></p>
-      <div class="timer-wrap">
+      <div class="timer-wrap" hidden aria-hidden="true">
         <div id="timer" class="timer">—</div>
         <div id="timerHint" class="timer-hint"></div>
       </div>
@@ -141,7 +144,17 @@
       </label>
 
       <label class="check"><input id="shuffleEnabled" type="checkbox" /> Shuffle exercises with the same repetition count</label>
-      <label class="check"><input id="hardOnly" type="checkbox" /> Difficult exercises only</label>
+
+      <fieldset class="difficulty-filter-box">
+        <legend>Play exercises with rating</legend>
+        <div class="difficulty-filter-options">
+          <label class="check compact-check"><input id="filterEasy" type="checkbox" checked /> Easy</label>
+          <label class="check compact-check"><input id="filterHard" type="checkbox" checked /> Hard</label>
+          <label class="check compact-check"><input id="filterNone" type="checkbox" checked /> None</label>
+        </div>
+        <p class="small muted filter-hint">Select any combination. None means exercises without a difficulty rating.</p>
+      </fieldset>
+
       <label class="check"><input id="wakeLockEnabled" type="checkbox" checked /> Keep screen awake during training</label>
       <label class="check"><input id="mediaControlsEnabled" type="checkbox" checked /> Headset controls & Android audio focus</label>
     </details>
@@ -237,6 +250,6 @@
     </div>
   </div>
 
-  <script src="app.js?v=7.3"></script>
+  <script src="app.js?v=7.4"></script>
 </body>
 </html>

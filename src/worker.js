@@ -115,7 +115,7 @@ export default {
       if (request.method!=='GET') return json({error:'Method not allowed'},405);
       try {
         const result=await env.DB.prepare('SELECT 1 FROM lesson_progress LIMIT 1').all();
-        return json({status:'ok',app:'business-english-trainer',version:'7.3',database:'connected'});
+        return json({status:'ok',app:'business-english-trainer',version:'7.4',database:'connected'});
       } catch {return json({status:'error',database:'not connected; run schema.sql'},503);}
     }
     if (url.pathname==='/api/progress') return progress(request,env);

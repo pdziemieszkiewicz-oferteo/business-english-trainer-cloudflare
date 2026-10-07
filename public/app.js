@@ -5,7 +5,7 @@
   const els = {
     lessonSelect: $('lessonSelect'), lessonMeta: $('lessonMeta'), lessonFile: $('lessonFile'),
     modeButtons: [...document.querySelectorAll('.mode-btn')], modeName: $('modeName'),
-    counter: $('counter'), phaseLabel: $('phaseLabel'), progressBar: $('progressBar'),
+    counter: $('counter'), difficultyCounts: $('difficultyCounts'), phaseLabel: $('phaseLabel'), progressBar: $('progressBar'),
     sentenceText: $('sentenceText'), translationText: $('translationText'), timer: $('timer'), timerHint: $('timerHint'),
     prevBtn: $('prevBtn'), playBtn: $('playBtn'), repeatBtn: $('repeatBtn'), nextBtn: $('nextBtn'),
     easyBtn: $('easyBtn'), hardBtn: $('hardBtn'), ratingStatus: $('ratingStatus'), rideScreenBtn: $('rideScreenBtn'),
@@ -13,7 +13,7 @@
     polishVoiceSelect: $('polishVoiceSelect'), testPolishVoiceBtn: $('testPolishVoiceBtn'), polishVoiceInfo: $('polishVoiceInfo'), translationSeconds: $('translationSeconds'),
     speechRate: $('speechRate'), speechRateValue: $('speechRateValue'),
     repetitionCount: $('repetitionCount'), pauseSeconds: $('pauseSeconds'), recallSeconds: $('recallSeconds'), businessSeconds: $('businessSeconds'), endWarningSeconds: $('endWarningSeconds'),
-    shuffleEnabled: $('shuffleEnabled'), hardOnly: $('hardOnly'), wakeLockEnabled: $('wakeLockEnabled'), mediaControlsEnabled: $('mediaControlsEnabled'),
+    shuffleEnabled: $('shuffleEnabled'), filterEasy: $('filterEasy'), filterHard: $('filterHard'), filterNone: $('filterNone'), wakeLockEnabled: $('wakeLockEnabled'), mediaControlsEnabled: $('mediaControlsEnabled'),
     refreshLessonsBtn: $('refreshLessonsBtn'), syncKeyInput: $('syncKeyInput'), generateSyncKeyBtn: $('generateSyncKeyBtn'),
     saveSyncKeyBtn: $('saveSyncKeyBtn'), copySyncKeyBtn: $('copySyncKeyBtn'), syncInfo: $('syncInfo'), syncBadge: $('syncBadge'),
     exportProgressBtn: $('exportProgressBtn'), progressFile: $('progressFile'), resetProgressBtn: $('resetProgressBtn'), stats: $('stats'),
@@ -25,7 +25,7 @@
 
   const STORE_KEY = 'ceoEnglishRideTrainerV6';
   const LEGACY_STORE_KEY = 'ceoEnglishRideTrainerV5';
-  const APP_VERSION = '7.3';
+  const APP_VERSION = '7.4';
   const MANUAL_REPLAY_BONUS_SECONDS = 2;
   const MODE_NAMES = { R: 'Repeat', A: 'Active Recall', B: 'Business Response', P: 'Translate & Recall (PL → EN)' };
 
@@ -56,7 +56,7 @@
     return {
       settings: {
         mode: 'R', repetitions: 2, pauseSeconds: 7, recallSeconds: 7, businessSeconds: 15, endWarningSeconds: 2,
-        beep: true, shuffle: false, hardOnly: false, wakeLock: true, mediaControls: true, speechRate: 0.9, voiceURI: '', plVoiceURI: '', translationSeconds: 5, showEnglishInPL: true
+        beep: true, shuffle: false, hardOnly: false, filterEasy: true, filterHard: true, filterNone: true, wakeLock: true, mediaControls: true, speechRate: 0.9, voiceURI: '', plVoiceURI: '', translationSeconds: 5, showEnglishInPL: true
       },
       lessons: {},
       lastLessonId: null,
@@ -69,10 +69,19 @@
 
   function deepMergeState(raw) {
     const d = defaultState();
+    const incomingSettings = raw?.settings || {};
+    const settings = { ...d.settings, ...incomingSettings };
+    // Migration from the previous single "Difficult exercises only" switch.
+    // Preserve the user's intent the first time V7.4 opens.
+    const hasNewDifficultyFilters = ['filterEasy', 'filterHard', 'filterNone'].some(k => Object.prototype.hasOwnProperty.call(incomingSettings, k));
+    if (!hasNewDifficultyFilters && incomingSettings.hardOnly === true) {
+      settings.filterEasy = false; settings.filterHard = true; settings.filterNone = false;
+    }
+    settings.hardOnly = false; // legacy field retained only for backward-compatible stored state
     return {
       ...d,
       ...raw,
-      settings: { ...d.settings, ...(raw?.settings || {}) },
+      settings,
       lessons: raw?.lessons || {},
       localLessons: raw?.localLessons || {},
       syncMeta: raw?.syncMeta || {},
@@ -158,6 +167,34 @@
     return p ? ((p.hard || 0) > (p.easy || 0) || p.lastRating === 'hard') : false;
   }
 
+  function exerciseDifficulty(ex) {
+    const p = progressFor(ex);
+    if (!p) return 'none';
+    if (p.lastRating === 'easy' || p.lastRating === 'hard') return p.lastRating;
+    // Legacy fallback for ratings created before lastRating was stored reliably.
+    const easy = Number(p.easy || 0), hard = Number(p.hard || 0);
+    if (easy === 0 && hard === 0) return 'none';
+    return hard > easy ? 'hard' : 'easy';
+  }
+
+  function selectedDifficulty(kind) {
+    if (kind === 'easy') return state.settings.filterEasy !== false;
+    if (kind === 'hard') return state.settings.filterHard !== false;
+    return state.settings.filterNone !== false;
+  }
+
+  function difficultyFilterActive() {
+    return !(state.settings.filterEasy !== false && state.settings.filterHard !== false && state.settings.filterNone !== false);
+  }
+
+  function matchesDifficultyFilter(ex) { return selectedDifficulty(exerciseDifficulty(ex)); }
+
+  function difficultyCountsForMode(mode = state.settings.mode) {
+    const counts = { none: 0, easy: 0, hard: 0 };
+    for (const ex of modeExercises(mode)) counts[exerciseDifficulty(ex)] += 1;
+    return counts;
+  }
+
   function compareExercises(a, b) {
     const pa = progressFor(a) || { played: 0, lastPracticedAt: null };
     const pb = progressFor(b) || { played: 0, lastPracticedAt: null };
@@ -234,7 +271,7 @@
   }
 
   function saveRoundPosition() {
-    if (!lesson || state.settings.hardOnly) return;
+    if (!lesson || difficultyFilterActive()) return;
     const rs = roundState();
     if (!rs) return;
     rs.position = Math.max(0, Math.min(queuePos, Math.max(0, queue.length - 1)));
@@ -247,18 +284,25 @@
   function buildQueue({ resetPosition = false } = {}) {
     if (!lesson) { queue = []; queuePos = 0; updateUI(); return; }
 
-    if (state.settings.hardOnly) {
-      queue = modeExercises().filter(isHard).sort(compareExercises);
-      queuePos = resetPosition ? 0 : Math.min(queuePos, Math.max(0, queue.length - 1));
-      updateUI();
-      return;
-    }
-
     const rs = roundState();
     const byId = new Map(modeExercises().map(ex => [ex.id, ex]));
-    queue = (rs?.queueIds || []).map(id => byId.get(id)).filter(Boolean);
-    queuePos = resetPosition ? 0 : Math.max(0, Math.min(Number(rs?.position || 0), Math.max(0, queue.length - 1)));
-    if (resetPosition && rs) { rs.position = 0; rs.updatedAt = new Date().toISOString(); touchProgress(); saveState(); scheduleServerPush(); }
+    const fullRoundQueue = (rs?.queueIds || []).map(id => byId.get(id)).filter(Boolean);
+    const previousId = currentExercise()?.id || null;
+
+    queue = difficultyFilterActive() ? fullRoundQueue.filter(matchesDifficultyFilter) : fullRoundQueue;
+
+    if (resetPosition) {
+      queuePos = 0;
+    } else if (difficultyFilterActive()) {
+      const previousIndex = previousId ? queue.findIndex(ex => ex.id === previousId) : -1;
+      queuePos = previousIndex >= 0 ? previousIndex : Math.min(queuePos, Math.max(0, queue.length - 1));
+    } else {
+      queuePos = Math.max(0, Math.min(Number(rs?.position || 0), Math.max(0, queue.length - 1)));
+    }
+
+    if (resetPosition && rs && !difficultyFilterActive()) {
+      rs.position = 0; rs.updatedAt = new Date().toISOString(); touchProgress(); saveState(); scheduleServerPush();
+    }
     updateUI();
   }
 
@@ -320,7 +364,7 @@
     els.modeName.textContent = MODE_NAMES[state.settings.mode] || state.settings.mode;
     if (!lesson) {
       els.lessonMeta.textContent = '';
-      els.counter.textContent = '—'; els.progressBar.style.width = '0%'; els.stats.innerHTML = '';
+      els.counter.textContent = '—'; if (els.difficultyCounts) els.difficultyCounts.textContent = '— / — / —'; els.progressBar.style.width = '0%'; els.stats.innerHTML = '';
       els.sentenceText.hidden = false; $('statusCard').classList.remove('polish-mode');
       els.sentenceText.textContent = 'No lesson loaded.'; els.translationText.textContent = '';
       updateRatingStatus();
@@ -333,13 +377,17 @@
       const rs = roundState();
       const roundNo = rs?.round || 1;
       els.counter.textContent = `${queuePos + 1} / ${queue.length} · Round ${roundNo}`;
+      const dc = difficultyCountsForMode();
+      if (els.difficultyCounts) { els.difficultyCounts.textContent = `${dc.none} / ${dc.easy} / ${dc.hard}`; els.difficultyCounts.title = 'None / Easy / Hard'; }
       els.progressBar.style.width = `${((queuePos + 1) / Math.max(1, queue.length)) * 100}%`;
       displayExercisePart(ex, 'prompt');
     } else {
       els.counter.textContent = '0 / 0';
+      const dc = difficultyCountsForMode();
+      if (els.difficultyCounts) { els.difficultyCounts.textContent = `${dc.none} / ${dc.easy} / ${dc.hard}`; els.difficultyCounts.title = 'None / Easy / Hard'; }
       els.progressBar.style.width = '0%';
       els.sentenceText.hidden = false; $('statusCard').classList.remove('polish-mode');
-      els.sentenceText.textContent = state.settings.hardOnly ? 'No difficult exercises in this mode.' : 'No exercises in this mode.';
+      els.sentenceText.textContent = difficultyFilterActive() ? 'No exercises match the selected difficulty ratings.' : 'No exercises in this mode.';
       els.translationText.textContent = '';
     }
     updateStats();
@@ -493,11 +541,9 @@
     p.totalPlays = (p.totalPlays || 0) + 1;
     p.lastPracticedAt = new Date().toISOString();
 
-    if (!state.settings.hardOnly) {
-      const rs = roundState(ex.mode);
-      if (rs && !rs.completedIds.includes(ex.id)) rs.completedIds.push(ex.id);
-      if (rs) rs.updatedAt = new Date().toISOString();
-    }
+    const rs = roundState(ex.mode);
+    if (rs && !rs.completedIds.includes(ex.id)) rs.completedIds.push(ex.id);
+    if (rs) rs.updatedAt = new Date().toISOString();
 
     touchProgress(); saveState(); updateStats(); scheduleServerPush();
   }
@@ -581,29 +627,44 @@
   function advanceAfterCompletion() {
     if (!queue.length) return;
 
-    if (state.settings.hardOnly) {
-      queuePos = queuePos < queue.length - 1 ? queuePos + 1 : 0;
-      updateUI();
-      setTimeout(() => { if (running && !paused) runCurrentExercise(); }, 280);
-      return;
-    }
-
     const rs = roundState();
     if (!rs) return;
     const completed = new Set(rs.completedIds || []);
+    const allIds = modeExercises().map(ex => ex.id);
+    const fullRoundComplete = allIds.length > 0 && allIds.every(id => completed.has(id));
 
-    if (completed.size >= queue.length) {
+    if (fullRoundComplete) {
       createNextRound();
       buildQueue({ resetPosition: false });
-    } else {
-      let next = queuePos;
-      for (let step = 1; step <= queue.length; step++) {
-        const candidate = (queuePos + step) % queue.length;
-        if (!completed.has(queue[candidate].id)) { next = candidate; break; }
+    } else if (difficultyFilterActive()) {
+      const currentId = currentExercise()?.id || null;
+      const currentFullIndex = Math.max(0, (rs.queueIds || []).indexOf(currentId));
+      const byId = new Map(modeExercises().map(ex => [ex.id, ex]));
+      const filtered = (rs.queueIds || []).map(id => byId.get(id)).filter(Boolean).filter(matchesDifficultyFilter);
+      if (!filtered.length) {
+        queue = []; queuePos = 0; updateUI();
+        stopTraining('No exercises match the selected difficulty ratings.');
+        return;
       }
-      queuePos = next;
-      saveRoundPosition();
-      updateUI();
+      // Continue with the next selected item in canonical round order. This also
+      // behaves sensibly when rating the current item makes it leave the filter.
+      let nextIndex = filtered.findIndex(ex => (rs.queueIds || []).indexOf(ex.id) > currentFullIndex);
+      if (nextIndex < 0) nextIndex = 0;
+      queue = filtered; queuePos = nextIndex; updateUI();
+    } else {
+      if (completed.size >= queue.length) {
+        createNextRound();
+        buildQueue({ resetPosition: false });
+      } else {
+        let next = queuePos;
+        for (let step = 1; step <= queue.length; step++) {
+          const candidate = (queuePos + step) % queue.length;
+          if (!completed.has(queue[candidate].id)) { next = candidate; break; }
+        }
+        queuePos = next;
+        saveRoundPosition();
+        updateUI();
+      }
     }
 
     setTimeout(() => { if (running && !paused) runCurrentExercise(); }, 280);
@@ -653,11 +714,11 @@
   function updateMediaMetadata() {
     if (!('mediaSession' in navigator) || !lesson) return;
     try {
-      const rs = state.settings.hardOnly ? null : roundState();
+      const rs = roundState();
       navigator.mediaSession.metadata = new MediaMetadata({
         title: `${lesson.title || lesson.id} · ${MODE_NAMES[state.settings.mode] || state.settings.mode}`,
-        artist: 'CEO English Ride Trainer v7.3',
-        album: state.settings.hardOnly ? `${queuePos + 1}/${queue.length} · Difficult only` : `${queuePos + 1}/${queue.length} · Round ${rs?.round || 1}`
+        artist: 'CEO English Ride Trainer v7.4',
+        album: difficultyFilterActive() ? `${queuePos + 1}/${queue.length} · Filtered · Round ${rs?.round || 1}` : `${queuePos + 1}/${queue.length} · Round ${rs?.round || 1}`
       });
     } catch {}
   }
@@ -711,7 +772,7 @@
     const ep = p.exercises[ex.id]; ep[kind] = (ep[kind] || 0) + 1; ep.lastRating = kind; ep.lastRatedAt = new Date().toISOString(); ep.lastPracticedAt = ep.lastRatedAt;
     ep.score = (ep.easy + ep.hard) ? Number((ep.easy / (ep.easy + ep.hard)).toFixed(3)) : null;
     touchProgress(); saveState(); scheduleServerPush();
-    if (state.settings.hardOnly) buildQueue({ resetPosition: true }); else { updateStats(); updateRatingStatus(); }
+    if (difficultyFilterActive() && !running) buildQueue({ resetPosition: true }); else { updateUI(); }
   }
 
   async function requestWakeLock() {
@@ -1191,7 +1252,9 @@
     els.showEnglishInPL.checked = state.settings.showEnglishInPL !== false;
     els.endWarningSeconds.value = state.settings.endWarningSeconds;
     els.shuffleEnabled.checked = state.settings.shuffle;
-    els.hardOnly.checked = state.settings.hardOnly;
+    els.filterEasy.checked = state.settings.filterEasy !== false;
+    els.filterHard.checked = state.settings.filterHard !== false;
+    els.filterNone.checked = state.settings.filterNone !== false;
     els.wakeLockEnabled.checked = state.settings.wakeLock;
     els.mediaControlsEnabled.checked = state.settings.mediaControls;
     els.speechRate.value = state.settings.speechRate;
@@ -1220,7 +1283,7 @@
       } else value = el.type === 'checkbox' ? el.checked : transform(el.value);
       state.settings[key] = value;
       saveState();
-      if (key === 'hardOnly') buildQueue({ resetPosition: state.settings.hardOnly });
+      if (['filterEasy', 'filterHard', 'filterNone'].includes(key)) buildQueue({ resetPosition: true });
     });
   }
 
@@ -1260,7 +1323,9 @@
   els.showEnglishInPL.addEventListener('change', () => { if (lesson) updateUI(); });
   bindSetting(els.endWarningSeconds, 'endWarningSeconds', Number);
   bindSetting(els.shuffleEnabled, 'shuffle', Boolean);
-  bindSetting(els.hardOnly, 'hardOnly', Boolean);
+  bindSetting(els.filterEasy, 'filterEasy', Boolean);
+  bindSetting(els.filterHard, 'filterHard', Boolean);
+  bindSetting(els.filterNone, 'filterNone', Boolean);
   bindSetting(els.wakeLockEnabled, 'wakeLock', Boolean);
   bindSetting(els.mediaControlsEnabled, 'mediaControls', Boolean);
 

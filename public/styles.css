@@ -149,3 +149,54 @@ code { color:#bae6fd; }
 @media (max-width:430px) {
   #installBtn { font-size: .59rem; padding: 4px 5px; }
 }
+
+
+/* V7.4: denser sentence card, especially on mobile landscape. */
+.progress-summary { display:flex; align-items:center; gap:10px; min-width:0; flex-wrap:wrap; }
+.difficulty-counts { color:#e2e8f0; font-size:.74rem; white-space:nowrap; font-variant-numeric:tabular-nums; }
+.status-card .sentence,
+.status-card .translation { min-height:0; }
+.status-card .sentence { margin:2px 0 0; padding:2px 0 0; }
+.status-card .translation { margin:0; padding:0 0 2px; color:#fff; opacity:1; }
+.status-card .timer-wrap[hidden] { display:none !important; }
+
+/* In PL mode Polish is the primary line; keep both lines compact. */
+.status-card.polish-mode .translation { min-height:0; margin:2px 0 0; padding:2px 0 1px; color:#fff; }
+.status-card.polish-mode .sentence { min-height:0; margin:0; padding:0 0 2px; }
+
+.difficulty-filter-box { margin:14px 0 0; padding:10px 12px 8px; border:1px solid var(--line); border-radius:12px; }
+.difficulty-filter-box legend { padding:0 5px; color:#dbeafe; font-size:.86rem; font-weight:700; }
+.difficulty-filter-options { display:flex; flex-wrap:wrap; gap:10px 18px; }
+.difficulty-filter-options .compact-check { margin-top:0; }
+.filter-hint { margin:6px 0 0; }
+
+@media (max-width: 700px) {
+  .translation { color:#fff !important; opacity:1 !important; }
+  .status-card { padding-top:10px; padding-bottom:10px; }
+  .progress { margin:6px 0 7px; }
+  .mode-name { margin-bottom:2px; }
+  .status-card .sentence { font-size:clamp(1.48rem,6.4vw,2.1rem); line-height:1.18; }
+  .status-card .translation { font-size:clamp(1.08rem,4.2vw,1.34rem); line-height:1.2; }
+  .status-card.polish-mode .translation { font-size:clamp(1.5rem,6.4vw,1.9rem); line-height:1.18; }
+  .status-card.polish-mode .sentence { font-size:clamp(1.14rem,4.5vw,1.5rem); line-height:1.2; }
+}
+
+@media (orientation: landscape) and (max-height: 520px) {
+  .app { padding-top:7px; }
+  .topbar { margin-bottom:5px; }
+  .card { margin:6px 0; }
+  .status-card { padding:8px 11px; }
+  .progress-row { font-size:.74rem; }
+  .progress { margin:4px 0 5px; height:5px; }
+  .mode-name { font-size:.66rem; min-height:0; }
+  .status-card .sentence { margin-top:1px; padding-top:1px; font-size:clamp(1.2rem,4.8vw,1.68rem); line-height:1.12; }
+  .status-card .translation { padding-bottom:1px; font-size:clamp(.98rem,3.4vw,1.18rem); line-height:1.12; }
+  .status-card.polish-mode .translation { margin-top:1px; padding-top:1px; font-size:clamp(1.23rem,4.8vw,1.58rem); line-height:1.12; }
+  .status-card.polish-mode .sentence { font-size:clamp(.98rem,3.6vw,1.22rem); line-height:1.12; }
+  .primary-controls { margin:6px 0; gap:7px; }
+  .primary-controls button { min-height:46px; padding:7px 10px; font-size:1.28rem; }
+  .rating-section { margin-bottom:6px; }
+  .rating-controls { gap:7px; }
+  .rating-controls button { padding:8px 8px; }
+  .rating-status { margin-top:4px; font-size:.7rem; }
+}
